@@ -28,7 +28,7 @@ License: CC BY-NC-ND 4.0
 The authoritative specification of the protocol is provided as a fixed
 document release:
 
-- `ECR-VP_v1.0_MxBv.pdf`
+- `ECR-VP v1.0.pdf`
 
 ## DOI
 A DOI has been reserved via Zenodo and will be activated upon publication.
