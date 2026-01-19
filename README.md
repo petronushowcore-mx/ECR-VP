@@ -1,5 +1,3 @@
-# ECR-VP
-Reference protocol for non-causal verification of architectural coherence, boundaries, and realizability in complex document corpora.
 # ECR-VP — Epistemic Coherence Review & Verification Protocol
 
 ECR-VP is a reference protocol for non-causal verification of structural
