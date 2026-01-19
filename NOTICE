@@ -1,0 +1,15 @@
+NOTICE
+
+This repository contains a reference verification protocol (ECR-VP).
+
+It does not provide implementations, executable code, automated tooling,
+metrics, scoring systems, or evaluation algorithms.
+
+The protocol is intended for interpretative and architectural verification
+of document corpora only.
+
+Derivative versions, modified protocols, or partial reuse of the protocol
+text as an independent framework are not permitted under the license.
+
+Application of the protocol to third-party corpora is allowed provided
+the protocol text remains unchanged and attribution is preserved.
