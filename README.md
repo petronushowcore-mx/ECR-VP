@@ -1,4 +1,4 @@
-﻿# ECR-VP вЂ” Epistemic Coherence Review & Verification Protocol
+# ECR-VP - Epistemic Coherence Review & Verification Protocol
 
 **Execution Shell v0.2.0**
 
@@ -11,37 +11,37 @@ ECR-VP treats independent LLM interpreters as isolated, non-causal observers. Ea
 ## Quick Start
 
 ### Prerequisites
-- **Python 3.10+** вЂ” [python.org](https://python.org)
-- **Node.js 18+** вЂ” [nodejs.org](https://nodejs.org)
+- **Python 3.10+** - [python.org](https://python.org)
+- **Node.js 18+** - [nodejs.org](https://nodejs.org)
 
 ### Installation
 
-`
+```
 git clone https://github.com/petronushowcore-mx/ECR-VP.git
 cd ECR-VP
-`
+```
 
 **Backend:**
-`
+```
 cd backend
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
-`
+```
 
 **Configure API keys:**
-`
+```
 cp .env.example backend/.env
 # Edit backend/.env and add your API keys
-`
+```
 
 **Start (Windows):**
-`
+```
 start.bat
-`
+```
 
 **Or manually:**
-`
+```
 cd backend
 .\venv\Scripts\activate
 python -m uvicorn app.main:app --reload --port 8000
@@ -49,7 +49,7 @@ python -m uvicorn app.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
-`
+```
 
 Open **http://localhost:3000**
 
@@ -72,12 +72,12 @@ Open **http://localhost:3000**
 
 ## Protocol Invariants
 
-- **Identity fixation** вЂ” corpus is SHA-256 sealed before analysis
-- **Interpreter isolation** вЂ” no cross-contamination between models
-- **Strict mode separation** вЂ” Rc, Ri, DET, Ra, Failure, Novelty, Verdict, Maturity
-- **No numerical scoring** вЂ” qualitative axes only
-- **Human synthesis is mandatory** вЂ” coherence map is human-generated
-- **Immutable artifacts** вЂ” interpreter outputs cannot be edited
+- **Identity fixation** - corpus is SHA-256 sealed before analysis
+- **Interpreter isolation** - no cross-contamination between models
+- **Strict mode separation** - Rc, Ri, DET, Ra, Failure, Novelty, Verdict, Maturity
+- **No numerical scoring** - qualitative axes only
+- **Human synthesis is mandatory** - coherence map is human-generated
+- **Immutable artifacts** - interpreter outputs cannot be edited
 
 ---
 
