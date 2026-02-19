@@ -159,3 +159,8 @@ export async function exportSession(sessionId) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+
+export async function providerStatus() {
+  return request("/providers/status");
+}

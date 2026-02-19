@@ -761,6 +761,26 @@ const SessionsPage = () => {
   const [executing, setExecuting] = useState(false);
   const [sessionType, setSessionType] = useState("strict_verifier");
   const [sourceSessionId, setSourceSessionId] = useState("");
+  const [providerStatus, setProviderStatus] = useState(null);
+
+  useEffect(() => {
+    if (showCreate) {
+      api.providerStatus().then(setProviderStatus).catch(() => setProviderStatus(null));
+    }
+  }, [showCreate]);
+
+  const isModelAvailable = (providerId, model) => {
+    if (!providerStatus) return true; // Loading, allow all
+    const ps = providerStatus[providerId];
+    if (!ps) return false;
+    if (providerId === "ollama") {
+      if (!ps.available) return false;
+      // Check if model is installed (match by base name)
+      const baseModel = model.split(":")[0];
+      return ps.models.some(m => m.startsWith(baseModel));
+    }
+    return ps.available;
+  };
   const sessions = useApi(() => api.listSessions().then(r => r.sessions), []);
   const passports = useApi(() => api.listPassports().then(r => r.passports), []);
 
@@ -853,14 +873,15 @@ const SessionsPage = () => {
                   return (
                     <div
                       key={model}
-                      onClick={() => toggleProvider(prov.id, model)}
+                      onClick={() => isModelAvailable(prov.id, model) && toggleProvider(prov.id, model)}
                       style={{
                         display: "flex", alignItems: "center", gap: 8,
                         padding: "5px 8px", marginBottom: 3, borderRadius: 3,
                         background: selected ? "rgba(217,119,6,0.08)" : "transparent",
                         border: `1px solid ${selected ? COLORS.amberDark : "transparent"}`,
-                        cursor: "pointer",
+                        cursor: isModelAvailable(prov.id, model) ? "pointer" : "not-allowed",
                         transition: "all 0.15s",
+                        opacity: isModelAvailable(prov.id, model) ? 1 : 0.3,
                       }}
                     >
                       <div style={{
@@ -873,9 +894,14 @@ const SessionsPage = () => {
                       </div>
                       <span style={{
                         fontFamily: FONTS.mono, fontSize: 10,
-                        color: selected ? COLORS.text : COLORS.textMuted,
+                        color: selected ? COLORS.text : isModelAvailable(prov.id, model) ? COLORS.textMuted : COLORS.textDim,
                       }}>
                         {model}
+                        {!isModelAvailable(prov.id, model) && (
+                          <span style={{ fontSize: 9, color: COLORS.red, marginLeft: 6 }}>
+                            {prov.id === "ollama" ? "not installed" : "no API key"}
+                          </span>
+                        )}
                       </span>
                     </div>
                   );

@@ -1,10 +1,13 @@
-﻿"""
+"""
 ECR-VP Execution Shell вЂ” FastAPI Application
 
 REST API for the ECR-VP protocol execution shell.
 """
 
 from __future__ import annotations
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 import logging
 from contextlib import asynccontextmanager
@@ -26,7 +29,7 @@ from .services.corpus_service import CorpusService
 from .services.orchestrator import SessionOrchestrator
 
 # Import providers to trigger registration
-from .providers import anthropic_provider, openai_provider, ollama_provider  # noqa: F401
+from .providers import anthropic_provider, openai_provider, ollama_provider, deepseek_provider  # noqa: F401
 from .core.gateway import ProviderRegistry
 
 logging.basicConfig(level=logging.INFO)
@@ -432,6 +435,38 @@ async def get_run_response(session_id: str, run_id: str):
 async def list_providers():
     """List available LLM providers."""
     return {"providers": ProviderRegistry.list_available()}
+
+@app.get("/api/providers/status")
+async def provider_status():
+    """Check which providers have API keys and which Ollama models are installed."""
+    import httpx
+    key_map = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "google": "GOOGLE_API_KEY",
+        "xai": "XAI_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
+        "perplexity": "PERPLEXITY_API_KEY",
+        "mistral": "MISTRAL_API_KEY",
+        "microsoft": "AZURE_API_KEY",
+    }
+    result = {}
+    for pid, env_var in key_map.items():
+        val = os.environ.get(env_var, "")
+        result[pid] = {"available": bool(val and len(val) > 5), "models": []}
+    # Check Ollama
+    ollama_models = []
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get("http://localhost:11434/api/tags")
+            if resp.status_code == 200:
+                for m in resp.json().get("models", []):
+                    name = m["name"]
+                    ollama_models.append(name)
+        result["ollama"] = {"available": True, "models": ollama_models}
+    except Exception:
+        result["ollama"] = {"available": False, "models": []}
+    return result
 
 
 # в”Ђв”Ђв”Ђ Routes: Export в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ

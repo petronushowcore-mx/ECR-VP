@@ -49,14 +49,24 @@ class OllamaProvider(InterpreterProvider):
                 if f.mime_type.startswith("image/"):
                     images.append(base64.b64encode(f.content).decode())
                 else:
-                    try:
-                        text_parts.append(
-                            f"--- File: {f.filename} ---\n"
-                            f"{f.content.decode('utf-8')}\n"
-                            f"--- End: {f.filename} ---"
-                        )
-                    except UnicodeDecodeError:
-                        text_parts.append(f"[Binary file: {f.filename}]")
+                    extracted = None
+                    # Try PDF text extraction first
+                    if f.filename.lower().endswith(".pdf"):
+                        extracted = self._extract_pdf_text(f.content, f.filename)
+                    # Try docx extraction
+                    elif f.filename.lower().endswith(".docx"):
+                        extracted = self._extract_docx_text(f.content, f.filename)
+                    if extracted:
+                        text_parts.append(extracted)
+                    else:
+                        try:
+                            text_parts.append(
+                                f"--- File: {f.filename} ---\n"
+                                f"{f.content.decode('utf-8')}\n"
+                                f"--- End: {f.filename} ---"
+                            )
+                        except UnicodeDecodeError:
+                            text_parts.append(f"[Binary file: {f.filename}, could not extract text]")
             
             if text_parts:
                 msg["content"] = "\n\n".join(text_parts) + "\n\n" + message.text
@@ -129,6 +139,58 @@ class OllamaProvider(InterpreterProvider):
                     "content": "Acknowledged. Awaiting next corpus segment.",
                 })
         return messages
+
+
+    @staticmethod
+    def _extract_pdf_text(content: bytes, filename: str) -> str | None:
+        """Extract text from PDF bytes using pdfplumber or PyPDF2."""
+        try:
+            import pdfplumber
+            import io
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                pages = []
+                for i, page in enumerate(pdf.pages):
+                    text = page.extract_text()
+                    if text:
+                        pages.append(f"[Page {i+1}]\n{text}")
+                if pages:
+                    return f"--- File: {filename} ---\n" + "\n\n".join(pages) + f"\n--- End: {filename} ---"
+        except ImportError:
+            pass
+        except Exception:
+            pass
+        try:
+            from PyPDF2 import PdfReader
+            import io
+            reader = PdfReader(io.BytesIO(content))
+            pages = []
+            for i, page in enumerate(reader.pages):
+                text = page.extract_text()
+                if text:
+                    pages.append(f"[Page {i+1}]\n{text}")
+            if pages:
+                return f"--- File: {filename} ---\n" + "\n\n".join(pages) + f"\n--- End: {filename} ---"
+        except ImportError:
+            pass
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def _extract_docx_text(content: bytes, filename: str) -> str | None:
+        """Extract text from DOCX bytes."""
+        try:
+            from docx import Document
+            import io
+            doc = Document(io.BytesIO(content))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            if paragraphs:
+                return f"--- File: {filename} ---\n" + "\n".join(paragraphs) + f"\n--- End: {filename} ---"
+        except ImportError:
+            pass
+        except Exception:
+            pass
+        return None
 
 
 ProviderRegistry.register("ollama", OllamaProvider)
