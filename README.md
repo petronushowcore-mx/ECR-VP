@@ -1,10 +1,70 @@
-# ECR-VP - Epistemic Coherence Review & Verification Protocol
+ECR-VP — Verification Protocol Shell
+Independent structural verification of document corpora through parallel LLM interpretation.
 
-**Execution Shell v0.2.0**
+What is ECR-VP?
+ECR-VP is a protocol execution engine that submits your document corpus to multiple AI interpreters simultaneously — each working in complete isolation, under identical conditions, following a fixed analytical protocol.
+No interpreter sees the output of another. No prompt is adapted per model. Every response is captured as an immutable, hash-verified artifact.
+The result: a structural map of your work — not through one opinion, but through independent convergence or divergence across interpreters.
 
-A local application for running the ECR-VP protocol: non-causal verification of structural coherence, boundary clarity, and engineering realizability of complex architectural document corpora.
+Who is it for?
+Researchers and theorists preparing grant applications, whitepapers, or academic submissions who need to know — before reviewers do — where their corpus is structurally weak, where claims exceed evidence, and where an outsider loses the thread.
+System architects building novel frameworks who need independent verification that their architecture is readable, realizable, and internally consistent — without relying on a single reviewer's bias.
+Patent authors who need to understand how their claims read to multiple independent analytical systems before filing.
+Anyone producing a serious document corpus who wants honest, protocol-bound structural feedback — not flattery, not stylistic preferences, not optimization advice.
 
-ECR-VP treats independent LLM interpreters as isolated, non-causal observers. Each receives the same sealed corpus and produces a structured report. Interpreters never see each other's outputs, never receive feedback, and are never tuned toward any expected result. Final synthesis is always performed by a human.
+What does the protocol actually do?
+Each interpreter independently executes eight analytical modes in fixed order:
+ModePurposeRcClassify the architecture — what class of system it is, what problems it addresses, how it differs from known approachesRiExtract invariants and prohibitions explicitly fixed by the corpus — what must exist, what is forbiddenDeclarative Epistemic TypologyClassify the corpus by epistemic layers — which are present, partially present, or absentRaAssess engineering realizability — what can be built today, what needs domain-specific specification, what is declared but non-operationalFailureIdentify failure modes — where the architecture could break, where metric gaming could emerge, where definitions driftNovelty & PositioningIdentify what is genuinely non-trivial at the architectural level and whyVerdictConcise engineering verdict on coherence, readability, realizability, and gapsProject MaturityOperational readiness snapshot — what exists, what can be piloted, what is blocking deployment
+Every interpreter receives the same corpus, the same prompt, in the same order. The protocol is a fixed artifact — any modification is a protocol violation.
+
+What makes this different from "just asking ChatGPT"?
+Isolation. Each interpreter works in a clean session with zero context from other runs. There is no cross-contamination.
+Immutability. Every response is captured exactly as received — timestamped, hashed, stored. No post-hoc editing, no cherry-picking.
+Integrity. The entire session — corpus, passport, responses, Merkle tree — is exportable as a cryptographically verifiable bundle.
+Protocol discipline. Interpreters don't freestyle. They follow prescribed modes in fixed order. You see not just what they think, but whether they can follow structure — and where they deviate.
+Convergence analysis. When three or five interpreters independently identify the same structural gap, that's not an opinion. That's a signal.
+
+How it works
+
+Upload your corpus — PDFs, markdown, text files. Any document set.
+Create a Corpus Passport — a locked, hash-verified manifest of your files in canonical order.
+Select interpreters — local models via Ollama, or cloud APIs (Anthropic, OpenAI, and others via your own API keys).
+Execute — the protocol runs all interpreters in parallel under identical conditions.
+Review results — each interpreter's output displayed as an immutable artifact with mode detection.
+Export — download the full verification bundle as a ZIP with Merkle tree proof.
+
+
+Pricing
+$1/week — bring your own API keys (BYOK).
+You pay for the protocol shell. You pay your LLM providers directly for inference. ECR-VP never touches your API keys server-side — they stay in your local environment.
+For local models via Ollama — no API costs at all. Run the full protocol on your own hardware.
+
+What you get
+
+Protocol execution engine with full session management
+Corpus Passport with SHA-256 integrity verification and Canon Lock
+Parallel or sequential interpreter execution
+Immutable artifact storage with timestamps and hash chains
+Mode detection — automatic identification of protocol compliance per interpreter
+Merkle tree verification for every session
+Export as a self-contained, cryptographically verifiable ZIP bundle
+Works with local models (Ollama) and cloud APIs
+
+
+What you don't get
+
+ECR-VP does not interpret results for you.
+ECR-VP does not rank interpreters or pick a "winner."
+ECR-VP does not optimize prompts per model.
+ECR-VP does not provide recommendations or strategy advice.
+
+The protocol is a verification instrument — not an optimization tool. It shows you the structural landscape. You decide what to do with it.
+
+Built on
+Navigational Cybernetics 2.5 — an architectural theory of long-horizon adaptive systems.
+The protocol itself is a structural artifact of that theory: verification through independent observation, not consensus; immutability over convenience; admissibility over optimization.
+
+Copyright © 2026 Maksim Barziankou (MxBv). Licensed under CC BY-NC-ND 4.0.
 
 ---
 
