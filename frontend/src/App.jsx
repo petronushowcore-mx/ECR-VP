@@ -130,6 +130,7 @@ const Icon = ({ type, size = 18, color = COLORS.textMuted }) => {
     check: <svg {...props}><polyline points="20 6 9 17 4 12"/></svg>,
     alert: <svg {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
     upload: <svg {...props}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+    download: <svg {...props}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
     shield: <svg {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
     eye: <svg {...props}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
     grid: <svg {...props}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
@@ -299,7 +300,7 @@ const NAV_ITEMS = [
   { key: "guide", label: "How to Use", icon: "file" },
 ];
 
-const Sidebar = ({ active, onNavigate }) => (
+const Sidebar = ({ active, onNavigate, license, onLogout }) => (
   <nav style={{
     width: 220, minHeight: "100vh",
     background: COLORS.bgCard,
@@ -370,6 +371,33 @@ const Sidebar = ({ active, onNavigate }) => (
         );
       })}
     </div>
+
+    {/* License Info */}
+    {license && (
+      <div style={{ padding: "12px 20px", borderTop: `1px solid ${COLORS.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <Icon type="check" size={10} color={COLORS.green} />
+          <span style={{ fontFamily: FONTS.mono, fontSize: 9, color: COLORS.greenMuted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            Licensed
+          </span>
+        </div>
+        <div style={{ fontFamily: FONTS.mono, fontSize: 9, color: COLORS.textDim, marginBottom: 8 }}>
+          {license.status === "offline" ? "Offline mode" : license.customerName || "Active"}
+        </div>
+        <div
+          onClick={onLogout}
+          style={{
+            fontFamily: FONTS.mono, fontSize: 9, color: COLORS.textDim,
+            cursor: "pointer", letterSpacing: "0.06em",
+            transition: "color 0.15s",
+          }}
+          onMouseEnter={e => e.target.style.color = COLORS.red}
+          onMouseLeave={e => e.target.style.color = COLORS.textDim}
+        >
+          Deactivate License
+        </div>
+      </div>
+    )}
 
     {/* Protocol Integrity */}
     <div style={{ padding: "16px 20px", borderTop: `1px solid ${COLORS.border}` }}>
@@ -883,6 +911,8 @@ const ResultsPage = () => {
   const [responseText, setResponseText] = useState("");
   const [responseLoading, setResponseLoading] = useState(false);
   const [responseMeta, setResponseMeta] = useState(null);
+  const [exportState, setExportState] = useState("idle"); // idle | loading | done | error
+  const [exportProgress, setExportProgress] = useState(0);
   const sessions = useApi(() => api.listSessions().then(r => r.sessions), []);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionDetail, setSessionDetail] = useState(null);
@@ -952,27 +982,87 @@ const ResultsPage = () => {
         </p>
       </div>
 
-      {/* Session Selector */}
+      {/* Session Selector + Export */}
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontFamily: FONTS.mono, fontSize: 9, color: COLORS.textDim, letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 5 }}>
           Select Session
         </label>
-        <select
-          value={selectedSession || ""}
-          onChange={e => handleSessionChange(e.target.value)}
-          style={{
-            width: "100%", padding: "8px 12px", borderRadius: 4, boxSizing: "border-box",
-            background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-            color: COLORS.text, fontFamily: FONTS.mono, fontSize: 12, outline: "none",
-            cursor: "pointer",
-          }}
-        >
-          {sortedSessions.map(s => (
-            <option key={s.session_id} value={s.session_id}>
-              {s.session_id?.slice(0,8)} — {s.purpose} — {new Date(s.created_at).toLocaleDateString()} [{s.state}]
-            </option>
-          ))}
-        </select>
+        <div style={{ display: "flex", gap: 8 }}>
+          <select
+            value={selectedSession || ""}
+            onChange={e => handleSessionChange(e.target.value)}
+            style={{
+              flex: 1, padding: "8px 12px", borderRadius: 4, boxSizing: "border-box",
+              background: COLORS.bg, border: `1px solid ${COLORS.border}`,
+              color: COLORS.text, fontFamily: FONTS.mono, fontSize: 12, outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            {sortedSessions.map(s => (
+              <option key={s.session_id} value={s.session_id}>
+                {s.session_id?.slice(0,8)} — {s.purpose} — {new Date(s.created_at).toLocaleDateString()} [{s.state}]
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              if (!selectedSession || exportState === "loading") return;
+              setExportState("loading");
+              setExportProgress(0);
+              api.exportSession(selectedSession, (p) => {
+                setExportProgress(p < 0 ? -1 : p);
+              })
+                .then(() => {
+                  setExportState("done");
+                  setTimeout(() => setExportState("idle"), 2500);
+                })
+                .catch(e => {
+                  setExportState("error");
+                  setTimeout(() => setExportState("idle"), 3000);
+                });
+            }}
+            disabled={!selectedSession || !runs.length || exportState === "loading"}
+            style={{
+              padding: "8px 16px", borderRadius: 4, border: `1px solid ${COLORS.borderGold}`,
+              background: "transparent",
+              color: exportState === "done" ? COLORS.green : exportState === "error" ? COLORS.red : COLORS.gold,
+              fontFamily: FONTS.mono, fontSize: 11, fontWeight: 600,
+              letterSpacing: "0.06em",
+              cursor: !selectedSession || !runs.length || exportState === "loading" ? "not-allowed" : "pointer",
+              opacity: !selectedSession || !runs.length ? 0.4 : 1,
+              transition: "all 0.15s", whiteSpace: "nowrap",
+              display: "flex", alignItems: "center", gap: 6,
+              position: "relative", overflow: "hidden", minWidth: 130,
+            }}
+          >
+            {/* Progress bar background */}
+            {exportState === "loading" && (
+              <div style={{
+                position: "absolute", left: 0, top: 0, bottom: 0,
+                width: exportProgress < 0 ? "100%" : `${exportProgress}%`,
+                background: exportProgress < 0
+                  ? "rgba(184,150,90,0.1)"
+                  : "rgba(184,150,90,0.12)",
+                transition: exportProgress < 0 ? "none" : "width 0.3s ease",
+                animation: exportProgress < 0 ? "exportPulse 1.5s ease-in-out infinite" : "none",
+              }} />
+            )}
+            <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, pointerEvents: "none" }}>
+              <Icon
+                type={exportState === "done" ? "check" : "download"}
+                size={13}
+                color={exportState === "done" ? COLORS.green : exportState === "error" ? COLORS.red : COLORS.gold}
+              />
+              {exportState === "loading"
+                ? (exportProgress < 0 ? "Exporting..." : `${exportProgress}%`)
+                : exportState === "done"
+                ? "Downloaded"
+                : exportState === "error"
+                ? "Failed"
+                : "Export ZIP"}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Run Tabs */}
@@ -1640,6 +1730,210 @@ const InstallPage = () => (
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// APP BACKGROUND — Semantic Field Animation (80 particles, gold↔purple)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const AppBackground = () => {
+  const canvasRef = useRef(null);
+  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const frameRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animId;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const PARTICLE_COUNT = 150;
+    const particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        radius: Math.random() * 2.0 + 0.5,
+        baseOpacity: Math.random() * 0.35 + 0.1,
+        pulsePhase: Math.random() * Math.PI * 2,
+        colorPhase: Math.random() * Math.PI * 2,
+        colorSpeed: 0.002 + Math.random() * 0.008,
+      });
+    }
+
+    const connections = [];
+    const MOUSE_RADIUS = 160;
+    const CONNECT_DIST = 110;
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const goldR = 194, goldG = 160, goldB = 90;
+    const purpR = 150, purpG = 80, purpB = 210;
+
+    let globalPhase = Math.random() * Math.PI * 2;
+
+    const animate = () => {
+      frameRef.current++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+
+      globalPhase += 0.001;
+
+      for (const p of particles) {
+        // Move
+        p.x += p.vx;
+        p.y += p.vy;
+        p.pulsePhase += 0.006;
+        p.colorPhase += p.colorSpeed;
+
+        // Wrap
+        if (p.x < 0) p.x += canvas.width;
+        if (p.x > canvas.width) p.x -= canvas.width;
+        if (p.y < 0) p.y += canvas.height;
+        if (p.y > canvas.height) p.y -= canvas.height;
+
+        // Very gentle mouse push (not attraction — just brightness boost)
+        const dmx = mx - p.x;
+        const dmy = my - p.y;
+        const distMouse = Math.sqrt(dmx * dmx + dmy * dmy);
+
+        // Subtle drift — no strong attraction that clusters them
+        if (distMouse < MOUSE_RADIUS && distMouse > 30) {
+          p.vx += (dmx / distMouse) * 0.002;
+          p.vy += (dmy / distMouse) * 0.002;
+        }
+
+        // Speed limit and damping
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > 0.5) {
+          p.vx *= 0.5 / speed;
+          p.vy *= 0.5 / speed;
+        }
+        p.vx *= 0.999;
+        p.vy *= 0.999;
+
+        // Per-particle color: own phase + global drift
+        const t = Math.sin(p.colorPhase + globalPhase) * 0.5 + 0.5;
+        const cR = lerp(goldR, purpR, t);
+        const cG = lerp(goldG, purpG, t);
+        const cB = lerp(goldB, purpB, t);
+
+        // Pulse + mouse proximity boost
+        const pulse = Math.sin(p.pulsePhase) * 0.12 + 0.88;
+        const mouseBrightness = distMouse < MOUSE_RADIUS ? 1 + (1 - distMouse / MOUSE_RADIUS) * 0.8 : 1;
+        const alpha = p.baseOpacity * pulse * mouseBrightness;
+        const r = p.radius * (distMouse < MOUSE_RADIUS ? 1 + (1 - distMouse / MOUSE_RADIUS) * 0.5 : 1);
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${cR|0}, ${cG|0}, ${cB|0}, ${Math.min(alpha, 0.7)})`;
+        ctx.fill();
+
+        // Glow near mouse
+        if (distMouse < MOUSE_RADIUS * 0.7) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r * 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${cR|0}, ${cG|0}, ${cB|0}, ${alpha * 0.06})`;
+          ctx.fill();
+        }
+      }
+
+      // Global avg color for connections
+      const gt = Math.sin(globalPhase * 1.3) * 0.5 + 0.5;
+      const gcR = lerp(goldR, purpR, gt);
+      const gcG = lerp(goldG, purpG, gt);
+      const gcB = lerp(goldB, purpB, gt);
+
+      // Mouse-proximity connections
+      for (let i = 0; i < particles.length; i++) {
+        const a = particles[i];
+        const da = Math.sqrt((mx - a.x) ** 2 + (my - a.y) ** 2);
+        if (da > MOUSE_RADIUS) continue;
+        for (let j = i + 1; j < particles.length; j++) {
+          const b = particles[j];
+          const db = Math.sqrt((mx - b.x) ** 2 + (my - b.y) ** 2);
+          if (db > MOUSE_RADIUS) continue;
+          const dist = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+          if (dist < CONNECT_DIST) {
+            const strength = (1 - dist / CONNECT_DIST) * (1 - da / MOUSE_RADIUS) * (1 - db / MOUSE_RADIUS);
+            connections.push({
+              x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+              opacity: strength * 0.4,
+              decay: 0.004 + Math.random() * 0.005,
+            });
+          }
+        }
+      }
+
+      // Draw and decay trails
+      for (let i = connections.length - 1; i >= 0; i--) {
+        const c = connections[i];
+        c.opacity -= c.decay;
+        if (c.opacity <= 0) { connections.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.moveTo(c.x1, c.y1);
+        ctx.lineTo(c.x2, c.y2);
+        ctx.strokeStyle = `rgba(${gcR|0}, ${gcG|0}, ${gcB|0}, ${c.opacity})`;
+        ctx.lineWidth = c.opacity * 1.5;
+        ctx.stroke();
+      }
+
+      // Ambient connections (skip-sample for performance with 150)
+      if (frameRef.current % 6 === 0) {
+        for (let i = 0; i < particles.length; i += 3) {
+          for (let j = i + 1; j < particles.length; j += 3) {
+            const a = particles[i], b = particles[j];
+            const dx = a.x - b.x, dy = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 55) {
+              const alpha = (1 - dist / 55) * 0.025;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.strokeStyle = `rgba(${gcR * 0.6 |0}, ${gcG * 0.6 |0}, ${gcB * 0.6 |0}, ${alpha})`;
+              ctx.lineWidth = 0.4;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    const handleMouse = (e) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("mousemove", handleMouse);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", handleMouse);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "fixed", top: 0, left: 0,
+        width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 0,
+      }}
+    />
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FOOTER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1680,11 +1974,429 @@ const Footer = () => (
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LICENSE GATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LICENSE_STORAGE_KEY = "ecr-vp-license";
+
+// Animated semantic field background
+const SemanticField = () => {
+  const canvasRef = useRef(null);
+  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const particlesRef = useRef([]);
+  const connectionsRef = useRef([]);
+  const frameRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animId;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    // Init particles
+    const PARTICLE_COUNT = 60;
+    const particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        radius: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.4 + 0.1,
+        pulsePhase: Math.random() * Math.PI * 2,
+      });
+    }
+    particlesRef.current = particles;
+
+    // Connection trails: { x1, y1, x2, y2, opacity, decay }
+    const connections = [];
+    connectionsRef.current = connections;
+
+    const MOUSE_RADIUS = 200;
+    const CONNECT_DIST = 140;
+
+    const animate = () => {
+      frameRef.current++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+
+      // Update particles
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.pulsePhase += 0.01;
+
+        // Wrap around
+        if (p.x < -20) p.x = canvas.width + 20;
+        if (p.x > canvas.width + 20) p.x = -20;
+        if (p.y < -20) p.y = canvas.height + 20;
+        if (p.y > canvas.height + 20) p.y = -20;
+
+        // Mouse attraction (subtle)
+        const dmx = mx - p.x;
+        const dmy = my - p.y;
+        const distMouse = Math.sqrt(dmx * dmx + dmy * dmy);
+        if (distMouse < MOUSE_RADIUS && distMouse > 10) {
+          p.vx += (dmx / distMouse) * 0.008;
+          p.vy += (dmy / distMouse) * 0.008;
+        }
+
+        // Dampen velocity
+        p.vx *= 0.998;
+        p.vy *= 0.998;
+
+        // Draw particle
+        const pulse = Math.sin(p.pulsePhase) * 0.15 + 0.85;
+        const nearMouse = distMouse < MOUSE_RADIUS ? 1 + (1 - distMouse / MOUSE_RADIUS) * 2 : 1;
+        const alpha = p.opacity * pulse * nearMouse;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * nearMouse, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(184, 150, 90, ${Math.min(alpha, 0.8)})`;
+        ctx.fill();
+
+        // Glow for nearby particles
+        if (nearMouse > 1.3) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * nearMouse * 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(217, 119, 6, ${alpha * 0.1})`;
+          ctx.fill();
+        }
+      }
+
+      // Find new connections near mouse
+      for (let i = 0; i < particles.length; i++) {
+        const a = particles[i];
+        const da = Math.sqrt((mx - a.x) ** 2 + (my - a.y) ** 2);
+        if (da > MOUSE_RADIUS) continue;
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const b = particles[j];
+          const db = Math.sqrt((mx - b.x) ** 2 + (my - b.y) ** 2);
+          if (db > MOUSE_RADIUS) continue;
+
+          const dist = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+          if (dist < CONNECT_DIST) {
+            const strength = (1 - dist / CONNECT_DIST) * (1 - da / MOUSE_RADIUS) * (1 - db / MOUSE_RADIUS);
+            connections.push({
+              x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+              opacity: strength * 0.6,
+              decay: 0.003 + Math.random() * 0.004,
+            });
+          }
+        }
+      }
+
+      // Draw and decay connections (trails)
+      for (let i = connections.length - 1; i >= 0; i--) {
+        const c = connections[i];
+        c.opacity -= c.decay;
+        if (c.opacity <= 0) {
+          connections.splice(i, 1);
+          continue;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(c.x1, c.y1);
+        ctx.lineTo(c.x2, c.y2);
+        ctx.strokeStyle = `rgba(184, 150, 90, ${c.opacity})`;
+        ctx.lineWidth = c.opacity * 1.5;
+        ctx.stroke();
+      }
+
+      // Ambient connections between close particles (very subtle)
+      if (frameRef.current % 3 === 0) {
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const a = particles[i], b = particles[j];
+            const dist = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+            if (dist < 80) {
+              const alpha = (1 - dist / 80) * 0.04;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.strokeStyle = `rgba(107, 90, 62, ${alpha})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    const handleMouse = (e) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("mousemove", handleMouse);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", handleMouse);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "fixed", top: 0, left: 0,
+        width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 0,
+      }}
+    />
+  );
+};
+
+const LicenseGate = ({ onUnlock }) => {
+  const [key, setKey] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Check saved license on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(LICENSE_STORAGE_KEY);
+    if (saved) {
+      validateKey(saved, true);
+    } else {
+      setChecking(false);
+    }
+  }, []);
+
+  const validateKey = async (licenseKey, silent = false) => {
+    if (!silent) setLoading(true);
+    setError(null);
+    try {
+      const result = await api.validateLicense(licenseKey);
+      if (result.valid) {
+        localStorage.setItem(LICENSE_STORAGE_KEY, licenseKey);
+        onUnlock({
+          key: licenseKey,
+          customerName: result.customer_name || "",
+          expiresAt: result.expires_at || null,
+          status: result.status || "active",
+        });
+      } else {
+        localStorage.removeItem(LICENSE_STORAGE_KEY);
+        if (!silent) setError(result.error || "Invalid or expired license key");
+        setChecking(false);
+      }
+    } catch (e) {
+      // If backend is down, allow offline grace
+      const saved = localStorage.getItem(LICENSE_STORAGE_KEY);
+      if (saved && silent) {
+        onUnlock({ key: saved, customerName: "", expiresAt: null, status: "offline" });
+      } else {
+        if (!silent) setError("Cannot reach license server. Check backend connection.");
+        setChecking(false);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    const trimmed = key.trim();
+    if (!trimmed) return;
+    validateKey(trimmed);
+  };
+
+  // Show nothing while checking saved license
+  if (checking) return (
+    <div style={{
+      minHeight: "100vh", background: COLORS.bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <Spinner />
+    </div>
+  );
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: COLORS.bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20, position: "relative", overflow: "hidden",
+    }}>
+      <SemanticField />
+      <div style={{ width: "100%", maxWidth: 460, position: "relative", zIndex: 1 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{
+            fontFamily: FONTS.mono, fontSize: 28, fontWeight: 700,
+            color: COLORS.gold, letterSpacing: "0.08em",
+          }}>
+            ECR-VP
+          </div>
+          <div style={{
+            fontFamily: FONTS.mono, fontSize: 10,
+            color: COLORS.textDim, letterSpacing: "0.2em",
+            marginTop: 6, textTransform: "uppercase",
+          }}>
+            Verification Protocol Shell
+          </div>
+          <div style={{
+            height: 2, width: 48, margin: "16px auto 0",
+            background: `linear-gradient(90deg, transparent, ${COLORS.amber}, ${COLORS.gold}, ${COLORS.amber}, transparent)`,
+            borderRadius: 1,
+          }} />
+        </div>
+
+        {/* License Card */}
+        <div style={{
+          background: COLORS.bgCard,
+          border: `1px solid ${COLORS.borderGold}`,
+          borderRadius: 8,
+          padding: "32px 28px",
+          boxShadow: "0 0 40px rgba(184,150,90,0.04)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+            <Icon type="lock" size={16} color={COLORS.gold} />
+            <span style={{
+              fontFamily: FONTS.mono, fontSize: 11, fontWeight: 600,
+              color: COLORS.gold, letterSpacing: "0.1em", textTransform: "uppercase",
+            }}>
+              License Activation
+            </span>
+          </div>
+
+          <p style={{
+            fontFamily: FONTS.body, fontSize: 13, color: COLORS.textMuted,
+            lineHeight: 1.7, margin: "0 0 20px",
+          }}>
+            Enter your license key to access ECR-VP. Keys are issued with your subscription
+            at <a href="https://petronus.lemonsqueezy.com" target="_blank" rel="noopener noreferrer"
+              style={{ color: COLORS.gold, textDecoration: "none", borderBottom: `1px dotted ${COLORS.borderGold}` }}
+            >petronus.lemonsqueezy.com</a>
+          </p>
+
+          <a
+            href="https://petronus.lemonsqueezy.com/checkout/buy/16bb2267-434c-4ab0-a820-3f8e0b42d1d0"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "10px 14px", borderRadius: 4, marginBottom: 20,
+              background: "rgba(217,119,6,0.06)", border: `1px solid rgba(217,119,6,0.15)`,
+              textDecoration: "none", cursor: "pointer", transition: "all 0.15s",
+            }}
+          >
+            <Icon type="zap" size={12} color={COLORS.amber} />
+            <span style={{ fontFamily: FONTS.mono, fontSize: 11, color: COLORS.amber }}>
+              4 PLN/week (~0.90 EUR) &middot; BYOK model &middot; Cancel anytime
+            </span>
+          </a>
+
+          <label style={{
+            fontFamily: FONTS.mono, fontSize: 9, color: COLORS.textDim,
+            letterSpacing: "0.1em", textTransform: "uppercase", display: "block", marginBottom: 6,
+          }}>
+            License Key
+          </label>
+          <input
+            type="text"
+            value={key}
+            onChange={e => setKey(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+            autoFocus
+            style={{
+              width: "100%", padding: "10px 14px", borderRadius: 4, boxSizing: "border-box",
+              background: COLORS.bg, border: `1px solid ${COLORS.border}`,
+              color: COLORS.text, fontFamily: FONTS.mono, fontSize: 13, outline: "none",
+              letterSpacing: "0.02em",
+            }}
+          />
+
+          {error && (
+            <div style={{
+              marginTop: 12, padding: "8px 12px", borderRadius: 4,
+              background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)",
+              fontFamily: FONTS.mono, fontSize: 11, color: COLORS.red,
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !key.trim()}
+            style={{
+              width: "100%", marginTop: 16, padding: "10px 18px",
+              borderRadius: 4, border: "none",
+              background: loading || !key.trim() ? COLORS.bgPanel : COLORS.amberDark,
+              color: loading || !key.trim() ? COLORS.textDim : "#000",
+              fontFamily: FONTS.mono, fontSize: 12, fontWeight: 600,
+              letterSpacing: "0.06em", cursor: loading || !key.trim() ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+              opacity: loading || !key.trim() ? 0.5 : 1,
+            }}
+          >
+            {loading ? "Validating..." : "Activate License"}
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <span style={{
+            fontFamily: FONTS.mono, fontSize: 9, color: COLORS.textDim, letterSpacing: "0.06em",
+          }}>
+            Inspired by{" "}
+            <a href="https://github.com/petronushowcore-mx/ECR-VP" target="_blank" rel="noopener noreferrer"
+              style={{ color: COLORS.goldMuted, textDecoration: "none" }}>
+              Navigational Cybernetics 2.5
+            </a>
+            {" "}|{" "}
+            <a href="https://www.linkedin.com/in/max-barzenkov-b03441131" target="_blank" rel="noopener noreferrer"
+              style={{ color: "#A78BFA", textDecoration: "none" }}>
+              MxBv
+            </a>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // APP ROOT
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function App() {
   const [page, setPage] = useState("dashboard");
+  const [license, setLicense] = useState(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem(LICENSE_STORAGE_KEY);
+    setLicense(null);
+  };
+
+  // License gate
+  if (!license) {
+    return (
+      <>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+          body { background: ${COLORS.bg}; color: ${COLORS.text}; font-family: ${FONTS.body}; -webkit-font-smoothing: antialiased; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+        <LicenseGate onUnlock={setLicense} />
+      </>
+    );
+  }
 
   const renderPage = () => {
     switch (page) {
@@ -1728,6 +2440,7 @@ export default function App() {
 
         textarea { font-family: ${FONTS.body}; }
         select { cursor: pointer; }
+        @keyframes exportPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.8; } }
         
         /* Noise texture overlay */
         #ecr-vp-root::before {
@@ -1742,11 +2455,13 @@ export default function App() {
       `}</style>
 
       <div id="ecr-vp-root" style={{ display: "flex", minHeight: "100vh" }}>
-        <Sidebar active={page} onNavigate={setPage} />
+        <AppBackground />
+        <Sidebar active={page} onNavigate={setPage} license={license} onLogout={handleLogout} />
         <main style={{
           marginLeft: 220, flex: 1,
           padding: "32px 40px",
           maxWidth: 1100,
+          position: "relative", zIndex: 1,
         }}>
           {renderPage()}
           <Footer />

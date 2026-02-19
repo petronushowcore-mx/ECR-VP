@@ -130,3 +130,30 @@ export async function getRunResponse(sessionId, runId) {
 export async function listProviders() {
   return request("/providers");
 }
+
+// ─── License ─────────────────────────────────────────────────────────────
+
+export async function validateLicense(licenseKey) {
+  return request("/license/validate", {
+    method: "POST",
+    body: JSON.stringify({ license_key: licenseKey }),
+  });
+}
+
+// ─── Export ──────────────────────────────────────────────────────────────
+
+export async function exportSession(sessionId) {
+  const url = `${BASE}/sessions/${sessionId}/export`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `Export error ${res.status}`);
+  }
+  const blob = await res.blob();
+  const filename = res.headers.get("content-disposition")?.match(/filename=(.+)/)?.[1] || `ECR-VP_export.zip`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}

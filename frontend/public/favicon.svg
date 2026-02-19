@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D4B877"/>
+      <stop offset="50%" stop-color="#B8965A"/>
+      <stop offset="100%" stop-color="#8A7044"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8A7044"/>
+      <stop offset="100%" stop-color="#6B5A3E"/>
+    </linearGradient>
+    <radialGradient id="sg" cx="0.45" cy="0.42" r="0.55">
+      <stop offset="0%" stop-color="#C62828"/>
+      <stop offset="100%" stop-color="#8B1A1A"/>
+    </radialGradient>
+    <filter id="sh"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/></filter>
+    <filter id="ss"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/></filter>
+  </defs>
+  <path d="M100 40 L340 40 L412 112 L412 472 L100 472 Z" fill="url(#dg)" filter="url(#sh)" stroke="#6B5A3E" stroke-width="2"/>
+  <path d="M340 40 L340 112 L412 112 Z" fill="url(#fg)" stroke="#6B5A3E" stroke-width="1.5"/>
+  <rect x="145" y="140" width="220" height="6" rx="3" fill="#6B5A3E" opacity="0.35"/>
+  <rect x="145" y="170" width="180" height="6" rx="3" fill="#6B5A3E" opacity="0.3"/>
+  <rect x="145" y="200" width="200" height="6" rx="3" fill="#6B5A3E" opacity="0.25"/>
+  <rect x="145" y="230" width="160" height="6" rx="3" fill="#6B5A3E" opacity="0.2"/>
+  <rect x="145" y="260" width="210" height="6" rx="3" fill="#6B5A3E" opacity="0.2"/>
+  <g filter="url(#ss)">
+    <polygon points="310,370 322,342 348,332 332,310 336,282 310,290 286,274 284,302 262,318 288,328" fill="url(#sg)" transform="translate(-2,10) scale(1.35) translate(-80,-70)"/>
+    <circle cx="300" cy="375" r="52" fill="url(#sg)"/>
+    <circle cx="300" cy="375" r="38" fill="none" stroke="#FFD5D0" stroke-width="1.5" opacity="0.4"/>
+    <polygon points="300,357 282,393 318,393" fill="none" stroke="#FFD5D0" stroke-width="4" stroke-linejoin="round" opacity="0.85"/>
+  </g>
+</svg>
