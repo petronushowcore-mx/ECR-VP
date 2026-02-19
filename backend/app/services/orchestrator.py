@@ -35,6 +35,7 @@ from ..models.schema import (
     ProtocolMode,
     RunState,
     SessionState,
+    SessionType,
     VerificationSession,
 )
 from .corpus_service import CorpusService
@@ -42,7 +43,7 @@ from .corpus_service import CorpusService
 logger = logging.getLogger(__name__)
 
 
-# ─── Fixed Protocol Constants ────────────────────────────────────────────
+# ─── Fixed Protocol Constants ────────────────────────────────────────
 
 COMPLETION_PHRASE = (
     "Corpus completed. Execute the ECR-VP protocol. "
@@ -50,9 +51,21 @@ COMPLETION_PHRASE = (
     "Work strictly by modes."
 )
 
-# The reference prompt from ECR-VP §2.7
-# This is a FIXED ARTIFACT — any modification is a protocol violation.
-REFERENCE_PROMPT = '''You are acting as an independent interpreter within the ECR-VP verification protocol for an architectural document corpus. Your task is to produce a report on structural integrity, readability without the author, clarity of boundaries, engineering realizability of the core, and risks of over-claiming. You do not prove mathematical correctness and do not validate scientific results. You build a map of understanding and non-understanding. You do not optimize conclusions toward the author's expectations. You do not provide patent strategy advice. You do not ask for clarifications and do not request additional files. You work strictly by the modes described below and do not mix them.
+COMPLETION_PHRASE_FORMALIZATION = (
+    "Corpus completed. Execute the formalization protocol. "
+    "Do not ask clarifying questions. Do not request additional data. "
+    "Translate to formal structures only."
+)
+
+COMPLETION_PHRASE_AGGREGATOR = (
+    "All interpreter outputs provided above. Execute the divergence analysis. "
+    "Do not ask clarifying questions. Map convergence and divergence only."
+)
+
+# ─── Prompt Templates (FIXED ARTIFACTS) ──────────────────────────────
+
+# Mode 1: Strict Verifier — the original ECR-VP 8-mode prompt
+STRICT_VERIFIER_PROMPT = '''You are acting as an independent interpreter within the ECR-VP verification protocol for an architectural document corpus. Your task is to produce a report on structural integrity, readability without the author, clarity of boundaries, engineering realizability of the core, and risks of over-claiming. You do not prove mathematical correctness and do not validate scientific results. You build a map of understanding and non-understanding. You do not optimize conclusions toward the author's expectations. You do not provide patent strategy advice. You do not ask for clarifications and do not request additional files. You work strictly by the modes described below and do not mix them.
 
 Rc Mode: Describe what this architecture is as a class. What problems it addresses. How it differs from RL, planning, safe-RL, constrained optimization, and monitoring. Provide an interpretation without attempting to confirm correctness.
 
@@ -72,17 +85,84 @@ Project Maturity Summary Mode: Provide a short operational summary of the projec
 
 Format: Write in continuous prose, in paragraphs, without bullet points. Separate modes with headings. Do not imitate the author's style. Do not compliment. Do not provide 'how to sell' advice. Act as a strict independent reviewer.'''
 
+# Mode 3: Formalization — translate theory to formal structures
+FORMALIZATION_PROMPT = '''You are acting as a formalization engine within the ECR-VP protocol. Your task is to translate the architectural theory in the provided corpus into machine-checkable formal structures.
+
+For each major construct, definition, or mechanism in the corpus, produce one or more of the following:
+
+1. Formal Definitions: Precise set-theoretic or type-theoretic definitions. Use standard mathematical notation. If the corpus uses informal language, translate it. If ambiguity exists, state the ambiguity explicitly and provide the closest unambiguous formalization.
+
+2. Pseudocode: Algorithmic descriptions of processes, transitions, and decision procedures described in the corpus. Use a clean pseudocode style (Python-like or Haskell-like). Include type signatures where possible.
+
+3. Constraint Specifications: Formal statements of invariants, preconditions, postconditions, and safety properties. Use predicate logic or temporal logic notation as appropriate.
+
+4. Type Signatures: For every operator, function, or mapping described in the corpus, provide explicit type signatures showing domain, codomain, and any constraints.
+
+5. Dependency Graph: Identify which definitions depend on which. Flag circular dependencies explicitly.
+
+Rules:
+- Do not evaluate the theory. Do not assess quality or correctness.
+- Do not generate new theory. Only formalize what the corpus contains.
+- If a concept cannot be formalized without additional definitions, state exactly what is missing.
+- If the corpus contains contradictory definitions, formalize both and mark the contradiction.
+- Separate each formalized construct with a clear heading referencing the source document and section.
+- Write in continuous prose between formal blocks. Do not use bullet points for explanations.
+
+Format: Organize by source document, then by construct. Use LaTeX-style notation for mathematics. Use code blocks for pseudocode. Act as a precise formalization instrument, not a critic.'''
+
+# Mode 2: Position Aggregator — map divergence across interpreter outputs
+AGGREGATOR_PROMPT = '''You are acting as a position aggregator within the ECR-VP protocol. You have received the outputs of multiple independent interpreters who each analyzed the same corpus under identical conditions, in complete isolation from each other.
+
+Your task is to produce a structured divergence map. You do not evaluate the corpus itself. You do not add your own analysis of the source material. You only analyze the interpreter outputs.
+
+Produce the following sections:
+
+Consensus Zone: Identify claims, observations, or assessments that appear in a majority (>50%) of interpreter outputs. State each consensus point and note which interpreters support it.
+
+Divergence Zone: Identify points where interpreters disagree or reach contradictory conclusions. For each divergence, state the positions of each interpreter. Do not resolve the disagreement. Do not pick a winner.
+
+Unique Observations: Identify observations that appear in only one interpreter's output and are absent from all others. Note which interpreter made each unique observation.
+
+Structural Compliance: For each interpreter, note whether they followed the prescribed mode structure, which modes they covered, and where they deviated from protocol.
+
+Blind Spots: Identify topics or aspects of the corpus that no interpreter addressed, or that all interpreters treated superficially.
+
+Confidence Distribution: For each major topic area, provide a rough distribution of how confidently interpreters assessed it (strong claims vs. hedged language vs. silence).
+
+Rules:
+- Do not evaluate the corpus directly. Your only input is interpreter outputs.
+- Do not favor any interpreter over another.
+- Do not generate recommendations or improvements.
+- Quote specific interpreter statements only when necessary to illustrate divergence.
+- Write in continuous prose, in paragraphs. Separate sections with headings.
+- This is a convenience layer for human comprehension, not a verification instrument.
+
+Format: Organize by the sections above. Be concise. Act as a neutral cartographer of positions, not a judge.'''
+
 
 class SessionOrchestrator:
     """
     Orchestrates ECR-VP verification sessions.
-    
+
     Key invariants enforced:
     - All interpreters receive identical input (same passport, prompt, corpus, order)
-    - No interpreter sees output from another
+    - No interpreter sees output from another (except in Aggregator mode)
     - No prompt adaptation per model
     - All outputs are immutable once captured
     """
+
+    # Map session types to their prompts
+    PROMPT_MAP = {
+        SessionType.STRICT_VERIFIER: STRICT_VERIFIER_PROMPT,
+        SessionType.FORMALIZATION: FORMALIZATION_PROMPT,
+        SessionType.POSITION_AGGREGATOR: AGGREGATOR_PROMPT,
+    }
+
+    COMPLETION_MAP = {
+        SessionType.STRICT_VERIFIER: COMPLETION_PHRASE,
+        SessionType.FORMALIZATION: COMPLETION_PHRASE_FORMALIZATION,
+        SessionType.POSITION_AGGREGATOR: COMPLETION_PHRASE_AGGREGATOR,
+    }
 
     def __init__(self, corpus_service: CorpusService, data_dir: Path):
         self.corpus_service = corpus_service
@@ -94,29 +174,53 @@ class SessionOrchestrator:
         self,
         passport: CorpusPassport,
         interpreters: list[InterpreterConfig],
+        session_type: SessionType = SessionType.STRICT_VERIFIER,
+        source_session_id: Optional[str] = None,
     ) -> VerificationSession:
         """
         Create a new verification session.
-        
+
         Args:
             passport: Locked Corpus Passport
-            interpreters: List of interpreter configurations (minimum 3 recommended)
+            interpreters: List of interpreter configurations
+            session_type: Type of session (strict_verifier, formalization, position_aggregator)
+            source_session_id: For aggregator mode — ID of the session to analyze
         """
         if not passport.is_locked:
             raise ValueError("Cannot create session with unlocked passport. Run Canon Lock first.")
-        
+
         if len(interpreters) < 1:
             raise ValueError("At least one interpreter is required.")
-        
-        if len(interpreters) < 3:
+
+        # Validate session-type-specific requirements
+        if session_type == SessionType.POSITION_AGGREGATOR:
+            if not source_session_id:
+                raise ValueError("Position Aggregator requires a source_session_id.")
+            # Verify source session exists and is completed
+            try:
+                source = self.load_session(source_session_id)
+                if source.state not in (SessionState.AWAITING_SYNTHESIS, SessionState.COMPLETED):
+                    raise ValueError(
+                        f"Source session must be in awaiting_synthesis or completed state, "
+                        f"got {source.state.value}"
+                    )
+            except FileNotFoundError:
+                raise ValueError(f"Source session not found: {source_session_id}")
+
+        if session_type == SessionType.STRICT_VERIFIER and len(interpreters) < 3:
             logger.warning(
-                "ECR-VP recommends at least 3 interpreters (preferably 5). "
-                f"Only {len(interpreters)} configured."
+                "ECR-VP recommends at least 3 interpreters for Strict Verifier "
+                f"(preferably 5). Only {len(interpreters)} configured."
             )
+
+        # Select the appropriate prompt
+        prompt = self.PROMPT_MAP[session_type]
 
         session = VerificationSession(
             passport=passport,
-            reference_prompt=REFERENCE_PROMPT,
+            reference_prompt=prompt,
+            session_type=session_type,
+            source_session_id=source_session_id,
             state=SessionState.LOCKED,
         )
 
@@ -125,15 +229,16 @@ class SessionOrchestrator:
             run = InterpreterRun(
                 session_id=session.session_id,
                 interpreter=config,
-                prompt_hash=InterpreterProvider.hash_prompt(REFERENCE_PROMPT),
+                prompt_hash=InterpreterProvider.hash_prompt(prompt),
             )
             session.runs.append(run)
 
         # Save session
         self._save_session(session)
-        
+
         logger.info(
-            f"Session {session.session_id} created with {len(interpreters)} interpreters"
+            f"Session {session.session_id} created: type={session_type.value}, "
+            f"interpreters={len(interpreters)}"
         )
         return session
 
@@ -144,14 +249,14 @@ class SessionOrchestrator:
     ) -> VerificationSession:
         """
         Execute all interpreter runs in a session.
-        
+
         Args:
             session: The session to execute
             parallel: If True, run interpreters concurrently; if False, sequentially
         """
         if session.state != SessionState.LOCKED:
             raise ValueError(f"Session must be in LOCKED state, got {session.state}")
-        
+
         session.state = SessionState.EXECUTING
         self._save_session(session)
 
@@ -170,10 +275,10 @@ class SessionOrchestrator:
             r.state in (RunState.COMPLETED, RunState.FAILED)
             for r in session.runs
         )
-        
+
         if all_done:
             session.state = SessionState.AWAITING_SYNTHESIS
-        
+
         self._save_session(session)
         return session
 
@@ -184,11 +289,11 @@ class SessionOrchestrator:
     ) -> None:
         """Execute a single interpreter run with full protocol compliance."""
         provider = ProviderRegistry.create(run.interpreter)
-        
+
         try:
             run.state = RunState.LOADING
             run.started_at = datetime.now(timezone.utc)
-            
+
             # Step 1: Create clean session
             provider_session_id = await provider.create_session()
             run.corpus_loading_log.append(f"Session created: {provider_session_id}")
@@ -210,7 +315,7 @@ class SessionOrchestrator:
 
             # Step 4: Send corpus files in canonical order
             corpus_files = self.corpus_service.get_corpus_files(session.passport)
-            
+
             # Determine if we need sequential loading
             total_size = sum(cf.size_bytes for cf, _ in corpus_files)
             needs_sequential = self._needs_sequential_loading(
@@ -221,12 +326,12 @@ class SessionOrchestrator:
                 # Sequential loading mode
                 for i, (cf, file_path) in enumerate(corpus_files, 1):
                     file_content = file_path.read_bytes()
-                    
+
                     preamble = (
                         f"Corpus segment {i}/{len(corpus_files)}: {cf.filename}\n"
                         "Do not form final conclusions until the completion phrase is received."
                     )
-                    
+
                     await provider.send_message(
                         provider_session_id,
                         MessagePayload(
@@ -252,7 +357,7 @@ class SessionOrchestrator:
                         mime_type=self._guess_mime_type(cf.filename),
                         canonical_order=cf.canonical_order,
                     ))
-                
+
                 await provider.send_message(
                     provider_session_id,
                     MessagePayload(
@@ -262,24 +367,37 @@ class SessionOrchestrator:
                 )
                 run.corpus_loading_log.append("Full corpus sent in batch mode")
 
+            # Step 4.5: For Aggregator mode — inject source session outputs
+            if session.session_type == SessionType.POSITION_AGGREGATOR and session.source_session_id:
+                source_outputs = self._collect_source_outputs(session.source_session_id)
+                await provider.send_message(
+                    provider_session_id,
+                    MessagePayload(text=source_outputs),
+                )
+                run.corpus_loading_log.append(
+                    f"Source session outputs injected from {session.source_session_id}"
+                )
+
             # Step 5: Send completion phrase and receive response
             run.state = RunState.AWAITING_RESPONSE
+            completion = self.COMPLETION_MAP[session.session_type]
             response = await provider.send_and_receive(
                 provider_session_id,
-                MessagePayload(text=COMPLETION_PHRASE),
+                MessagePayload(text=completion),
             )
             run.corpus_loading_log.append("Completion phrase sent, response received")
 
-            # Step 6: Detect mode structure (structural only, not evaluative)
-            response.detected_modes = self._detect_modes(response.raw_text)
-            response.missing_modes = self._find_missing_modes(response.detected_modes)
-            response.modes_in_order = self._check_mode_order(response.detected_modes)
+            # Step 6: Detect mode structure (for strict verifier only)
+            if session.session_type == SessionType.STRICT_VERIFIER:
+                response.detected_modes = self._detect_modes(response.raw_text)
+                response.missing_modes = self._find_missing_modes(response.detected_modes)
+                response.modes_in_order = self._check_mode_order(response.detected_modes)
 
             # Step 7: Store as immutable artifact
             run.response = response
             run.state = RunState.COMPLETED
             run.completed_at = datetime.now(timezone.utc)
-            
+
             self._save_artifact(session, run)
 
             # Step 8: Close provider session
@@ -290,9 +408,38 @@ class SessionOrchestrator:
             run.error = str(e)
             run.completed_at = datetime.now(timezone.utc)
             logger.error(f"Run {run.run_id} failed: {e}", exc_info=True)
-        
+
         finally:
             self._save_session(session)
+
+    def _collect_source_outputs(self, source_session_id: str) -> str:
+        """Collect all interpreter outputs from a source session for aggregator mode."""
+        source = self.load_session(source_session_id)
+        parts = [
+            "=== INTERPRETER OUTPUTS FROM SOURCE SESSION ===\n"
+            f"Source session: {source_session_id}\n"
+            f"Session type: {source.session_type.value}\n"
+            f"Number of interpreters: {len(source.runs)}\n"
+        ]
+
+        for i, run in enumerate(source.runs, 1):
+            parts.append(f"\n{'='*60}")
+            parts.append(f"INTERPRETER {i}: {run.interpreter.display_name}")
+            parts.append(f"Provider: {run.interpreter.provider} / {run.interpreter.model}")
+            parts.append(f"State: {run.state.value}")
+            parts.append(f"{'='*60}\n")
+
+            if run.response:
+                parts.append(run.response.raw_text)
+            elif run.error:
+                parts.append(f"[FAILED: {run.error}]")
+            else:
+                parts.append("[No response captured]")
+
+        parts.append(f"\n{'='*60}")
+        parts.append("=== END OF INTERPRETER OUTPUTS ===")
+
+        return "\n".join(parts)
 
     # ─── Mode Detection (Structural, Non-Evaluative) ─────────────────
 
@@ -309,16 +456,16 @@ class SessionOrchestrator:
         patterns = [
             (ProtocolMode.RC, r"(?:^|\n)\s*#+\s*Rc\s+Mode[:\s]", r"Rc Mode"),
             (ProtocolMode.RI, r"(?:^|\n)\s*#+\s*Ri\s+Mode[:\s]", r"Ri Mode"),
-            (ProtocolMode.DECLARATIVE_TYPOLOGY, 
+            (ProtocolMode.DECLARATIVE_TYPOLOGY,
              r"(?:^|\n)\s*#+\s*Declarative\s+Epistemic\s+Typology[:\s]",
              r"Declarative Epistemic Typology"),
             (ProtocolMode.RA, r"(?:^|\n)\s*#+\s*Ra\s+Mode[:\s]", r"Ra Mode"),
             (ProtocolMode.FAILURE, r"(?:^|\n)\s*#+\s*Failure\s+Mode[:\s]", r"Failure Mode"),
-            (ProtocolMode.NOVELTY, 
+            (ProtocolMode.NOVELTY,
              r"(?:^|\n)\s*#+\s*Novelty\s+(?:and|&)\s+Positioning[:\s]",
              r"Novelty and Positioning"),
             (ProtocolMode.VERDICT, r"(?:^|\n)\s*#+\s*Verdict[:\s]", r"Verdict Mode"),
-            (ProtocolMode.MATURITY, 
+            (ProtocolMode.MATURITY,
              r"(?:^|\n)\s*#+\s*Project\s+Maturity\s+Summary[:\s]",
              r"Project Maturity Summary"),
         ]
@@ -348,7 +495,7 @@ class SessionOrchestrator:
         prescribed = ProtocolMode.prescribed_order()
         prescribed_values = [m.value for m in prescribed]
         detected_values = [m.mode for m in detected]
-        
+
         # Check that the order of detected modes matches their prescribed order
         filtered_prescribed = [m for m in prescribed_values if m in detected_values]
         return detected_values == filtered_prescribed
@@ -389,7 +536,7 @@ class SessionOrchestrator:
         """Save session state to disk."""
         session_dir = self.sessions_dir / session.session_id
         session_dir.mkdir(parents=True, exist_ok=True)
-        
+
         session_path = session_dir / "session.json"
         session_path.write_text(
             session.model_dump_json(indent=2),
@@ -402,11 +549,11 @@ class SessionOrchestrator:
         """Save interpreter output as immutable artifact."""
         if not run.response:
             return
-        
+
         artifact_dir = (
-            self.sessions_dir 
-            / session.session_id 
-            / "runs" 
+            self.sessions_dir
+            / session.session_id
+            / "runs"
             / run.run_id
         )
         artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -415,10 +562,11 @@ class SessionOrchestrator:
         (artifact_dir / "response_raw.txt").write_text(
             run.response.raw_text, encoding="utf-8"
         )
-        
+
         # Save metadata
         metadata = {
             "run_id": run.run_id,
+            "session_type": session.session_type.value,
             "provider": run.interpreter.provider,
             "model": run.interpreter.model,
             "display_name": run.interpreter.display_name,
@@ -457,6 +605,7 @@ class SessionOrchestrator:
                         "session_id": data["session_id"],
                         "created_at": data["created_at"],
                         "state": data["state"],
+                        "session_type": data.get("session_type", "strict_verifier"),
                         "purpose": data["passport"]["purpose"],
                         "run_count": len(data.get("runs", [])),
                     })

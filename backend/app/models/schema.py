@@ -16,11 +16,18 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-# ─── Enums ────────────────────────────────────────────────────────────────
+# ─── Enums ────────────────────────────────────────────────────────────
 
 class ArchitecturalStatus(str, Enum):
     OPEN = "open"
     CLOSED = "closed"
+
+
+class SessionType(str, Enum):
+    """ECR-VP session modes — each with a different analytical purpose."""
+    STRICT_VERIFIER = "strict_verifier"           # Find logical holes, contradictions, gaps
+    POSITION_AGGREGATOR = "position_aggregator"    # Map divergence across a completed session
+    FORMALIZATION = "formalization"                 # Translate theory into formal structures
 
 
 class SessionState(str, Enum):
@@ -58,7 +65,7 @@ class ProtocolMode(str, Enum):
         ]
 
 
-# ─── Corpus & Passport ───────────────────────────────────────────────────
+# ─── Corpus & Passport ───────────────────────────────────────────────
 
 class CorpusFile(BaseModel):
     """A single file in the corpus with its identity hash."""
@@ -77,7 +84,7 @@ class CorpusPassport(BaseModel):
     """
     passport_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+
     # Corpus metadata
     purpose: str = Field(description="Purpose of this verification session")
     architectural_status: ArchitecturalStatus
@@ -87,10 +94,10 @@ class CorpusPassport(BaseModel):
         default_factory=list,
         description="Explicit constraints on scope of evaluation"
     )
-    
+
     # File manifest
     files: list[CorpusFile]
-    
+
     # Integrity
     is_locked: bool = False
 
@@ -100,7 +107,7 @@ class CorpusPassport(BaseModel):
 
 
 
-# ─── Interpreter & Provider ──────────────────────────────────────────────
+# ─── Interpreter & Provider ──────────────────────────────────────────
 
 class InterpreterConfig(BaseModel):
     """Configuration for a single interpreter instance."""
@@ -122,7 +129,7 @@ class InterpreterResponse(BaseModel):
     token_count_output: Optional[int] = None
     model_used: str
     provider: str
-    
+
     # Structural analysis (non-evaluative)
     detected_modes: list[DetectedMode] = Field(default_factory=list)
     modes_in_order: Optional[bool] = None
@@ -137,7 +144,7 @@ class DetectedMode(BaseModel):
     heading_text: str     # The actual heading found
 
 
-# ─── Session & Run ───────────────────────────────────────────────────────
+# ─── Session & Run ───────────────────────────────────────────────────
 
 class InterpreterRun(BaseModel):
     """A single interpreter execution within a session."""
@@ -145,15 +152,15 @@ class InterpreterRun(BaseModel):
     session_id: str
     interpreter: InterpreterConfig
     state: RunState = RunState.PENDING
-    
+
     # Timing
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    
+
     # Output
     response: Optional[InterpreterResponse] = None
     error: Optional[str] = None
-    
+
     # Audit trail
     prompt_hash: Optional[str] = None       # SHA-256 of exact prompt sent
     corpus_loading_log: list[str] = Field(default_factory=list)
@@ -167,20 +174,26 @@ class VerificationSession(BaseModel):
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     state: SessionState = SessionState.PREPARING
-    
+
+    # Session type
+    session_type: SessionType = SessionType.STRICT_VERIFIER
+
+    # For Position Aggregator — reference to the source session
+    source_session_id: Optional[str] = None
+
     # Fixed inputs
     passport: CorpusPassport
     reference_prompt: str  # The fixed ECR-VP prompt — must not be modified per-model
-    
+
     # Interpreter runs
     runs: list[InterpreterRun] = Field(default_factory=list)
-    
+
     # Synthesis (human layer)
     coherence_map: Optional[CoherenceMap] = None
     author_response: Optional[AuthorResponse] = None
 
 
-# ─── Synthesis Layer (Human-Generated) ───────────────────────────────────
+# ─── Synthesis Layer (Human-Generated) ───────────────────────────────
 
 class CoherenceLayer(BaseModel):
     """One layer of the coherence map."""
@@ -195,7 +208,7 @@ class CoherenceMap(BaseModel):
     """
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str  # Name of human synthesizer
-    
+
     # Layer 1: Overlapping conclusions
     overlap: CoherenceLayer = Field(
         description="Elements identified consistently by most interpreters"
@@ -219,7 +232,7 @@ class AuthorResponse(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     author: str
     text: str  # Continuous prose, not structured
-    
+
     # Tracking what was acknowledged
     correctly_understood: list[str] = Field(default_factory=list)
     misunderstood: list[str] = Field(default_factory=list)

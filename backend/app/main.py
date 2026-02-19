@@ -1,5 +1,5 @@
-"""
-ECR-VP Execution Shell — FastAPI Application
+﻿"""
+ECR-VP Execution Shell вЂ” FastAPI Application
 
 REST API for the ECR-VP protocol execution shell.
 """
@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from .models.schema import (
     ArchitecturalStatus,
     InterpreterConfig,
+    SessionType,
     VerificationSession,
 )
 from .services.corpus_service import CorpusService
@@ -31,18 +32,18 @@ from .core.gateway import ProviderRegistry
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ─── Configuration ───────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Configuration в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 DATA_DIR = Path("data")
 UPLOAD_DIR = DATA_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# ─── Services ────────────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Services в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 corpus_service = CorpusService(DATA_DIR)
 orchestrator = SessionOrchestrator(corpus_service, DATA_DIR)
 
-# ─── App ─────────────────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ App в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -73,7 +74,7 @@ app.add_middleware(
 )
 
 
-# ─── Request/Response Models ─────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Request/Response Models в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 class CreatePassportRequest(BaseModel):
     purpose: str
@@ -86,6 +87,8 @@ class CreatePassportRequest(BaseModel):
 class CreateSessionRequest(BaseModel):
     passport_id: str
     interpreters: list[InterpreterConfig]
+    session_type: str = "strict_verifier"
+    source_session_id: str | None = None
 
 
 class ExecuteSessionRequest(BaseModel):
@@ -98,7 +101,7 @@ class HealthResponse(BaseModel):
     data_dir: str
 
 
-# ─── Routes: Health ──────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: Health в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health():
@@ -109,7 +112,7 @@ async def health():
     )
 
 
-# ─── Routes: License Validation ────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: License Validation в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 class ValidateLicenseRequest(BaseModel):
     license_key: str
@@ -171,7 +174,7 @@ async def validate_license(req: ValidateLicenseRequest):
                 }
     except httpx.TimeoutException:
         # If LemonSqueezy is unreachable, allow grace period
-        logger.warning("LemonSqueezy API timeout — granting grace access")
+        logger.warning("LemonSqueezy API timeout вЂ” granting grace access")
         return {
             "valid": True,
             "status": "grace",
@@ -182,7 +185,7 @@ async def validate_license(req: ValidateLicenseRequest):
         raise HTTPException(status_code=502, detail="License server error")
 
 
-# ─── Routes: File Upload ─────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: File Upload в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @app.post("/api/files/upload")
 async def upload_files(files: list[UploadFile] = File(...)):
@@ -230,7 +233,7 @@ async def delete_uploaded_file(file_id: str):
     return {"deleted": decoded}
 
 
-# ─── Routes: Corpus Passport ────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: Corpus Passport в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @app.post("/api/passports")
 async def create_passport(request: CreatePassportRequest):
@@ -316,7 +319,7 @@ async def verify_passport_integrity(passport_id: str):
         raise HTTPException(404, f"Passport not found: {passport_id}")
 
 
-# ─── Routes: Sessions ───────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: Sessions в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @app.post("/api/sessions")
 async def create_session(request: CreateSessionRequest):
@@ -327,7 +330,7 @@ async def create_session(request: CreateSessionRequest):
         raise HTTPException(404, f"Passport not found: {request.passport_id}")
     
     try:
-        session = orchestrator.create_session(passport, request.interpreters)
+        session = orchestrator.create_session(passport, request.interpreters, session_type=SessionType(request.session_type), source_session_id=request.source_session_id)
         return {
             "session_id": session.session_id,
             "state": session.state.value,
@@ -423,7 +426,7 @@ async def get_run_response(session_id: str, run_id: str):
     }
 
 
-# ─── Routes: Providers ──────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: Providers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @app.get("/api/providers")
 async def list_providers():
@@ -431,7 +434,7 @@ async def list_providers():
     return {"providers": ProviderRegistry.list_available()}
 
 
-# ─── Routes: Export ──────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Routes: Export в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @app.get("/api/sessions/{session_id}/export")
 async def export_session(session_id: str):
@@ -548,7 +551,7 @@ async def export_session(session_id: str):
     )
 
 
-# ─── Static File Serving (Production Mode) ───────────────────────────
+# в”Ђв”Ђв”Ђ Static File Serving (Production Mode) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 # When frontend is built (npm run build) and copied to backend/static/,
 # FastAPI serves it directly. No separate frontend server needed.
 

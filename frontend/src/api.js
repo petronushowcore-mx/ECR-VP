@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ECR-VP API Client
  *
  * Connects the React frontend to the FastAPI backend.
@@ -21,13 +21,13 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-// ─── Health ──────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Health в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export async function getHealth() {
   return request("/health");
 }
 
-// ─── Files ───────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Files в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export async function uploadFiles(fileList) {
   const form = new FormData();
@@ -53,7 +53,7 @@ export async function deleteFile(fileId) {
   return request(`/files/${encodeURIComponent(fileId)}`, { method: "DELETE" });
 }
 
-// ─── Passports ───────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Passports в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export async function createPassport({
   purpose,
@@ -86,13 +86,15 @@ export async function verifyPassportIntegrity(passportId) {
   return request(`/passports/${passportId}/verify`);
 }
 
-// ─── Sessions ────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Sessions в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-export async function createSession({ passportId, interpreters }) {
+export async function createSession({ passportId, interpreters, sessionType, sourceSessionId }) {
   return request("/sessions", {
     method: "POST",
     body: JSON.stringify({
       passport_id: passportId,
+      session_type: sessionType || "strict_verifier",
+      source_session_id: sourceSessionId || null,
       interpreters: interpreters.map((i) => ({
         provider: i.provider,
         model: i.model,
@@ -125,13 +127,13 @@ export async function getRunResponse(sessionId, runId) {
   return request(`/sessions/${sessionId}/runs/${runId}/response`);
 }
 
-// ─── Providers ───────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Providers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export async function listProviders() {
   return request("/providers");
 }
 
-// ─── License ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ License в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export async function validateLicense(licenseKey) {
   return request("/license/validate", {
@@ -140,7 +142,7 @@ export async function validateLicense(licenseKey) {
   });
 }
 
-// ─── Export ──────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Export в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export async function exportSession(sessionId) {
   const url = `${BASE}/sessions/${sessionId}/export`;

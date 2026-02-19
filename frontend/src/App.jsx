@@ -53,12 +53,15 @@ const PROTOCOL_MODES = [
 ];
 
 const PROVIDERS = [
-  { id: "anthropic", name: "Anthropic", models: ["claude-opus-4-5-20250514", "claude-sonnet-4-5-20250929"] },
-  { id: "openai", name: "OpenAI", models: ["gpt-4o", "o1", "o3", "o3-mini"] },
-  { id: "deepseek", name: "DeepSeek", models: ["deepseek-chat", "deepseek-reasoner"] },
-  { id: "mistral", name: "Mistral", models: ["mistral-large-latest", "mistral-medium-latest"] },
-  { id: "ollama", name: "Ollama (Local)", models: ["llama3.1", "qwen2.5", "mistral", "gemma2"] },
-  { id: "google", name: "Google", models: ["gemini-2.0-flash", "gemini-2.5-pro"] },
+  { id: "anthropic", name: "Anthropic", models: ["claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"] },
+  { id: "openai", name: "OpenAI", models: ["gpt-5.3", "gpt-5.2", "gpt-5", "o3", "o4-mini"] },
+  { id: "google", name: "Google", models: ["gemini-3-pro", "gemini-2.5-pro", "gemini-2.0-flash"] },
+  { id: "xai", name: "xAI", models: ["grok-4", "grok-4-fast"] },
+  { id: "deepseek", name: "DeepSeek", models: ["deepseek-r1-v3.2", "deepseek-v3.2-chat"] },
+  { id: "perplexity", name: "Perplexity", models: ["sonar-deep-research", "sonar-pro"] },
+  { id: "mistral", name: "Mistral", models: ["mistral-large-latest", "mistral-small-latest", "codestral-latest"] },
+  { id: "microsoft", name: "Microsoft", models: ["phi-4", "phi-4-mini"] },
+  { id: "ollama", name: "Ollama (Local)", models: ["llama3.3:70b", "qwen3:72b", "qwen2.5:14b", "llama3.1:8b", "deepseek-r1:14b", "mistral:7b"] },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -756,6 +759,8 @@ const SessionsPage = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProviders, setSelectedProviders] = useState(new Set());
   const [executing, setExecuting] = useState(false);
+  const [sessionType, setSessionType] = useState("strict_verifier");
+  const [sourceSessionId, setSourceSessionId] = useState("");
   const sessions = useApi(() => api.listSessions().then(r => r.sessions), []);
   const passports = useApi(() => api.listPassports().then(r => r.passports), []);
 
@@ -785,9 +790,50 @@ const SessionsPage = () => {
       {/* Create Session Panel */}
       {showCreate && (
         <Card glow style={{ marginBottom: 24 }}>
+          <SectionTitle icon="compass">Session Mode</SectionTitle>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {[
+              { id: "strict_verifier", label: "Strict Verifier", desc: "Find logical holes, contradictions, gaps" },
+              { id: "position_aggregator", label: "Position Aggregator", desc: "Map divergence across a completed session" },
+              { id: "formalization", label: "Formalization", desc: "Translate theory into formal structures" },
+            ].map(mode => (
+              <div key={mode.id} onClick={() => setSessionType(mode.id)} style={{
+                flex: 1, padding: "10px 14px", borderRadius: 4, cursor: "pointer",
+                background: sessionType === mode.id ? "rgba(217,119,6,0.1)" : COLORS.bg,
+                border: `1.5px solid ${sessionType === mode.id ? COLORS.amber : COLORS.border}`,
+                transition: "all 0.2s",
+              }}>
+                <div style={{ fontFamily: FONTS.mono, fontSize: 11, fontWeight: 600, color: sessionType === mode.id ? COLORS.gold : COLORS.text, marginBottom: 4 }}>
+                  {mode.label}
+                </div>
+                <div style={{ fontFamily: FONTS.body, fontSize: 10, color: COLORS.textDim, lineHeight: 1.3 }}>
+                  {mode.desc}
+                </div>
+              </div>
+            ))}
+          </div>
+          {sessionType === "position_aggregator" && sessions.data?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontFamily: FONTS.mono, fontSize: 10, color: COLORS.textDim, display: "block", marginBottom: 4 }}>
+                SOURCE SESSION (required)
+              </label>
+              <select value={sourceSessionId} onChange={e => setSourceSessionId(e.target.value)} style={{
+                width: "100%", padding: "8px 10px", fontFamily: FONTS.mono, fontSize: 11,
+                background: COLORS.bg, color: COLORS.text, border: `1px solid ${COLORS.border}`,
+                borderRadius: 4, outline: "none",
+              }}>
+                <option value="">Select a completed session...</option>
+                {sessions.data.filter(s => s.state === "awaiting_synthesis" || s.state === "completed").map(s => (
+                  <option key={s.session_id} value={s.session_id}>
+                    {s.session_id.slice(0,8)} — {s.purpose} [{s.state}]
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <SectionTitle icon="zap">Select Interpreters</SectionTitle>
           <p style={{ fontFamily: FONTS.body, fontSize: 11, color: COLORS.textDim, margin: "0 0 14px" }}>
-            Minimum 3 recommended · Identical prompt for all · No adaptation per model
+            {sessionType === "strict_verifier" ? "Minimum 3 recommended · Identical prompt for all · No adaptation per model" : sessionType === "position_aggregator" ? "Select 1 strong model to analyze interpreter outputs" : "Select 1-2 models with strong formal reasoning"}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {PROVIDERS.map(prov => (
@@ -856,7 +902,7 @@ const SessionsPage = () => {
                       const [provider, model] = k.split(":");
                       return { provider, model, displayName: `${provider}/${model}` };
                     });
-                    const sess = await api.createSession({ passportId: latestPassport.passport_id, interpreters });
+                    const sess = await api.createSession({ passportId: latestPassport.passport_id, interpreters, sessionType, sourceSessionId: sourceSessionId || null });
                     await api.executeSession(sess.session_id, { parallel: true });
                     sessions.reload();
                     setShowCreate(false);
@@ -1453,12 +1499,16 @@ const GuidePage = () => (
         From this moment, the corpus is frozen — any change requires a new session with new hashes.
       </GuideStep>
 
-      <GuideStep number={3} title="Select interpreters → Sessions page">
+      <GuideStep number={3} title="Choose session mode and interpreters → Sessions page">
         Go to the <strong style={{ color: COLORS.gold }}>Sessions</strong> tab.
         Click <strong style={{ color: COLORS.amber }}>New Session</strong>.
-        Choose which LLM interpreters to use.
-        The protocol recommends at least 3 and preferably 5,
-        with different architectural lineages (e.g., Claude + GPT-4o + DeepSeek + a local model).
+        First, choose a <strong style={{ color: COLORS.gold }}>Session Mode</strong>:{" "}
+        <strong style={{ color: COLORS.amber }}>Strict Verifier</strong> for finding logical holes and contradictions (the core protocol),{" "}
+        <strong style={{ color: COLORS.amber }}>Formalization</strong> for translating theory into pseudocode and formal definitions, or{" "}
+        <strong style={{ color: COLORS.amber }}>Position Aggregator</strong> to map divergence across a completed session (this mode intentionally breaks isolation and is a convenience layer, not a verification instrument).
+        Then select which LLM interpreters to use.
+        For Strict Verifier, the protocol recommends at least 3 and preferably 5,
+        with different architectural lineages (e.g., Claude Opus 4.6 + GPT-5.2 + DeepSeek R1 + Grok 4 + a local model).
         The system sends the exact same prompt and corpus to every interpreter — no adaptation per model.
       </GuideStep>
 
@@ -1636,7 +1686,7 @@ const InstallPage = () => (
 
       <InstallStep number={3} title="Configure API keys">
         Create a file <strong style={{ color: COLORS.gold }}>backend/.env</strong> and add the API keys for the providers you want to use:
-        <CodeBlock>{"ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nDEEPSEEK_API_KEY=sk-...\nGOOGLE_API_KEY=...\nXAI_API_KEY=xai-...\nPERPLEXITY_API_KEY=pplx-...\nMISTRAL_API_KEY=..."}</CodeBlock>
+        <CodeBlock>{"ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nGOOGLE_API_KEY=...\nDEEPSEEK_API_KEY=sk-...\nXAI_API_KEY=xai-...\nPERPLEXITY_API_KEY=pplx-...\nMISTRAL_API_KEY=...\nAZURE_API_KEY=..."}</CodeBlock>
         <span style={{ fontFamily: FONTS.body, fontSize: 12, color: COLORS.textDim }}>
           You only need keys for providers you plan to use. At minimum, one cloud provider key is enough.
         </span>
@@ -1686,7 +1736,7 @@ const InstallPage = () => (
           { name: "qwen3:72b", vram: "48 GB+", tier: "Flagship" },
           { name: "qwen2.5:14b", vram: "16 GB", tier: "Standard" },
           { name: "llama3.1:8b", vram: "8 GB", tier: "Fast" },
-          { name: "deepseek-r1:8b", vram: "8 GB", tier: "Reasoning" },
+          { name: "deepseek-r1:14b", vram: "16 GB", tier: "Reasoning" },
           { name: "mistral:7b", vram: "8 GB", tier: "Fast" },
         ].map(m => (
           <div key={m.name} style={{ padding: "8px 10px", borderRadius: 4, background: COLORS.bgCard, border: `1px solid ${COLORS.border}` }}>
@@ -1714,7 +1764,9 @@ const InstallPage = () => (
           { provider: "Google (Gemini)", url: "aistudio.google.com", env: "GOOGLE_API_KEY" },
           { provider: "DeepSeek", url: "platform.deepseek.com", env: "DEEPSEEK_API_KEY" },
           { provider: "xAI (Grok)", url: "console.x.ai", env: "XAI_API_KEY" },
+          { provider: "Perplexity", url: "docs.perplexity.ai", env: "PERPLEXITY_API_KEY" },
           { provider: "Mistral", url: "console.mistral.ai", env: "MISTRAL_API_KEY" },
+          { provider: "Microsoft (Phi)", url: "ai.azure.com", env: "AZURE_API_KEY" },
         ].map(p => (
           <div key={p.env} style={{ padding: "8px 12px", borderRadius: 4, background: COLORS.bg, border: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
@@ -1751,7 +1803,7 @@ const AppBackground = () => {
     resize();
     window.addEventListener("resize", resize);
 
-    const PARTICLE_COUNT = 150;
+    const PARTICLE_COUNT = 250;
     const particles = [];
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       particles.push({
@@ -1884,7 +1936,7 @@ const AppBackground = () => {
         ctx.stroke();
       }
 
-      // Ambient connections (skip-sample for performance with 150)
+      // Ambient connections (skip-sample for performance with 250)
       if (frameRef.current % 6 === 0) {
         for (let i = 0; i < particles.length; i += 3) {
           for (let j = i + 1; j < particles.length; j += 3) {
