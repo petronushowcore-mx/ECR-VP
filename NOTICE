@@ -1,15 +1,11 @@
-NOTICE
+## NOTICE
 
-This repository contains a reference verification protocol (ECR-VP).
+This repository contains the reference specification of the ECR-VP (Epistemic Coherence Review & Verification Protocol).
 
-It does not provide implementations, executable code, automated tooling,
-metrics, scoring systems, or evaluation algorithms.
+It does not include executable implementations, software code, automated systems, scoring mechanisms, evaluation metrics, or decision-making algorithms.
 
-The protocol is intended for interpretative and architectural verification
-of document corpora only.
+ECR-VP is a structural and interpretative verification protocol intended for the architectural analysis of document corpora.
 
-Derivative versions, modified protocols, or partial reuse of the protocol
-text as an independent framework are not permitted under the license.
+Modification of the protocol text, creation of derivative protocols, partial extraction for independent frameworks, or redistribution of altered versions is not permitted under the terms of the license.
 
-Application of the protocol to third-party corpora is allowed provided
-the protocol text remains unchanged and attribution is preserved.
+Application of the protocol to third-party corpora is permitted, provided that the protocol text remains unmodified and proper attribution is preserved.
