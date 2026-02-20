@@ -1,148 +1,170 @@
-ECR-VP — Verification Protocol Shell
-Independent structural verification of document corpora through parallel LLM interpretation.
+# ECR-VP  
+## Epistemic Coherence Review & Verification Protocol
 
-What is ECR-VP?
-ECR-VP is a protocol execution engine that submits your document corpus to multiple AI interpreters simultaneously — each working in complete isolation, under identical conditions, following a fixed analytical protocol.
-No interpreter sees the output of another. No prompt is adapted per model. Every response is captured as an immutable, hash-verified artifact.
-The result: a structural map of your work — not through one opinion, but through independent convergence or divergence across interpreters.
+ECR-VP is a verification protocol for long-horizon theoretical corpora. It is not an AI assistant and it is not designed for dialogue. It is a structural layer that isolates interpreter behavior, compares divergence across models, and detects semantic drift under controlled conditions.
 
-Who is it for?
-Researchers and theorists preparing grant applications, whitepapers, or academic submissions who need to know — before reviewers do — where their corpus is structurally weak, where claims exceed evidence, and where an outsider loses the thread.
-System architects building novel frameworks who need independent verification that their architecture is readable, realizable, and internally consistent — without relying on a single reviewer's bias.
-Patent authors who need to understand how their claims read to multiple independent analytical systems before filing.
-Anyone producing a serious document corpus who wants honest, protocol-bound structural feedback — not flattery, not stylistic preferences, not optimization advice.
+The system was designed to address a specific problem: large bodies of work degrade over time. Definitions shift subtly. Regimes change implicitly. Logical gaps accumulate. Most AI tools are optimized for conversation and generation; they are not designed for structural verification.
 
-What does the protocol actually do?
-Each interpreter independently executes eight analytical modes in fixed order:
-ModePurposeRcClassify the architecture — what class of system it is, what problems it addresses, how it differs from known approachesRiExtract invariants and prohibitions explicitly fixed by the corpus — what must exist, what is forbiddenDeclarative Epistemic TypologyClassify the corpus by epistemic layers — which are present, partially present, or absentRaAssess engineering realizability — what can be built today, what needs domain-specific specification, what is declared but non-operationalFailureIdentify failure modes — where the architecture could break, where metric gaming could emerge, where definitions driftNovelty & PositioningIdentify what is genuinely non-trivial at the architectural level and whyVerdictConcise engineering verdict on coherence, readability, realizability, and gapsProject MaturityOperational readiness snapshot — what exists, what can be piloted, what is blocking deployment
-Every interpreter receives the same corpus, the same prompt, in the same order. The protocol is a fixed artifact — any modification is a protocol violation.
-
-What makes this different from "just asking ChatGPT"?
-Isolation. Each interpreter works in a clean session with zero context from other runs. There is no cross-contamination.
-Immutability. Every response is captured exactly as received — timestamped, hashed, stored. No post-hoc editing, no cherry-picking.
-Integrity. The entire session — corpus, passport, responses, Merkle tree — is exportable as a cryptographically verifiable bundle.
-Protocol discipline. Interpreters don't freestyle. They follow prescribed modes in fixed order. You see not just what they think, but whether they can follow structure — and where they deviate.
-Convergence analysis. When three or five interpreters independently identify the same structural gap, that's not an opinion. That's a signal.
-
-How it works
-
-Upload your corpus — PDFs, markdown, text files. Any document set.
-Create a Corpus Passport — a locked, hash-verified manifest of your files in canonical order.
-Select interpreters — local models via Ollama, or cloud APIs (Anthropic, OpenAI, and others via your own API keys).
-Execute — the protocol runs all interpreters in parallel under identical conditions.
-Review results — each interpreter's output displayed as an immutable artifact with mode detection.
-Export — download the full verification bundle as a ZIP with Merkle tree proof.
-
-
-Pricing
-$1/week — bring your own API keys (BYOK).
-You pay for the protocol shell. You pay your LLM providers directly for inference. ECR-VP never touches your API keys server-side — they stay in your local environment.
-For local models via Ollama — no API costs at all. Run the full protocol on your own hardware.
-
-What you get
-
-Protocol execution engine with full session management
-Corpus Passport with SHA-256 integrity verification and Canon Lock
-Parallel or sequential interpreter execution
-Immutable artifact storage with timestamps and hash chains
-Mode detection — automatic identification of protocol compliance per interpreter
-Merkle tree verification for every session
-Export as a self-contained, cryptographically verifiable ZIP bundle
-Works with local models (Ollama) and cloud APIs
-
-
-What you don't get
-
-ECR-VP does not interpret results for you.
-ECR-VP does not rank interpreters or pick a "winner."
-ECR-VP does not optimize prompts per model.
-ECR-VP does not provide recommendations or strategy advice.
-
-The protocol is a verification instrument — not an optimization tool. It shows you the structural landscape. You decide what to do with it.
-
-Built on
-Navigational Cybernetics 2.5 — an architectural theory of long-horizon adaptive systems.
-The protocol itself is a structural artifact of that theory: verification through independent observation, not consensus; immutability over convenience; admissibility over optimization.
-
-Copyright © 2026 Maksim Barziankou (MxBv). Licensed under CC BY-NC-ND 4.0.
+ECR-VP focuses on protocol integrity rather than optimization.
 
 ---
 
-## Quick Start
+## Architectural Positioning
 
-### Prerequisites
-- **Python 3.10+** - [python.org](https://python.org)
-- **Node.js 18+** - [nodejs.org](https://nodejs.org)
+ECR-VP must not be understood as a generic multi-model wrapper. The models are interchangeable interpreter engines. The protocol defines the regime.
 
-### Installation
+The system enforces:
 
-```
-git clone https://github.com/petronushowcore-mx/ECR-VP.git
-cd ECR-VP
-```
+- Identical prompts across all interpreters  
+- No per-model adaptation  
+- Isolated interpreter runs  
+- Divergence mapping  
+- Position aggregation  
+- Reproducible sessions  
+- Corpus sealing  
 
-**Backend:**
-```
-cd backend
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-```
+The emphasis is orchestration and controlled comparison, not model access.
 
-**Configure API keys:**
-```
-cp .env.example backend/.env
-# Edit backend/.env and add your API keys
-```
-
-**Start (Windows):**
-```
-start.bat
-```
-
-**Or manually:**
-```
-cd backend
-.\venv\Scripts\activate
-python -m uvicorn app.main:app --reload --port 8000
-# In another terminal:
-cd frontend
-npm install
-npm run dev
-```
-
-Open **http://localhost:3000**
+**ECR-VP is orchestration, not conversation.**
 
 ---
 
-## Supported Providers
+## Report Modes
 
-| Provider | Models | Pricing (150K/10K tokens) |
-|----------|--------|--------------------------|
-| **Anthropic** | Claude Opus 4.5, Sonnet 4.5, Haiku 4.5 | 0.60 - 0.90 |
-| **OpenAI** | GPT-5.2, GPT-5, o3, o4-mini | 0.04 - 0.40 |
-| **Google** | Gemini 3 Pro, 2.5 Pro/Flash | 0.02 - 0.32 |
-| **xAI** | Grok 4, Grok 4 Fast (2M context) | 0.04 - 0.60 |
-| **DeepSeek** | R1 V3.2, V3.2 Chat | 0.02 - 0.10 |
-| **Perplexity** | Sonar Deep Research, Sonar Pro | 0.16 - 0.45 |
-| **Mistral** | Large, Medium, Small, Codestral | 0.02 - 0.36 |
-| **Ollama** | LLaMA 3.3, Qwen 3, DeepSeek R1 | **Free (local)** |
+ECR-VP operates through three distinct report modes, each serving a different structural function. Strict Verifier is designed to detect logical gaps, contradictions, and internal inconsistencies within the corpus under identical-prompt multi-model conditions. Position Aggregator maps divergence across interpreters after a completed session, clustering interpretive positions and highlighting regime variance rather than ranking outcomes. Formalization translates theoretical content into structured representations, exposing implicit assumptions and testing definitional coherence. Together, these modes separate verification, comparative analysis, and structural formalization into clearly bounded layers of operation.
 
 ---
 
-## Protocol Invariants
+## Why Not Just Use ChatGPT Pro?
 
-- **Identity fixation** - corpus is SHA-256 sealed before analysis
-- **Interpreter isolation** - no cross-contamination between models
-- **Strict mode separation** - Rc, Ri, DET, Ra, Failure, Novelty, Verdict, Maturity
-- **No numerical scoring** - qualitative axes only
-- **Human synthesis is mandatory** - coherence map is human-generated
-- **Immutable artifacts** - interpreter outputs cannot be edited
+Chat interfaces are optimized for dialogue. They are not designed to:
+
+- Isolate interpretive regimes  
+- Preserve immutable artifacts  
+- Execute parallel identical-prompt runs  
+- Map divergence across architectures  
+- Seal corpora for reproducibility  
+
+Subscription chat interfaces are conversational tools.  
+ECR-VP is a verification infrastructure layer.
+
+---
+
+## Cost Transparency
+
+Cloud API pricing reflects real compute cost. Consumer AI subscriptions are heavily subsidized and optimized for engagement. API usage reflects actual token consumption and infrastructure load.
+
+ECR-VP does not obscure this.
+
+Before every session, the system displays:
+
+- Selected interpreters  
+- Estimated credit cost  
+- Current balance  
+
+There are no hidden multipliers and no background consumption.
+
+The protocol routes intelligently:
+
+- Low-cost interpreters for preliminary structural scans  
+- Premium models for final Omega verification and archival reports  
+
+Model routing is deliberate and visible.
+
+---
+
+## Model Strategy
+
+ECR-VP operates under two primary operational modes.
+
+### Preliminary Review
+
+Designed for exploratory structural scanning and drift detection at minimal cost.
+
+Recommended interpreters include:
+
+- DeepSeek (R1 / v3)  
+- Mistral  
+- Local models via Ollama  
+
+These runs provide variance detection and early signal without premium expenditure.
+
+### Omega Verification
+
+Reserved for final archival or publication-grade verification.
+
+Recommended interpreters include:
+
+- Claude Opus  
+- GPT-5 (or equivalent frontier models)  
+- Cross-model arbitration layer  
+
+Omega mode is intended for sealed reports, patent filings, and formal publication artifacts.
+
+---
+
+## Protocol Integrity
+
+ECR-VP enforces a strict structural regime:
+
+**Observation + Control**  
+**No scoring**  
+**No feedback**  
+**No optimization**
+
+The system does not rewrite text.  
+It does not rank arguments.  
+It does not optimize for persuasion or style.
+
+Admissibility-relevant structure remains visible to verification but non-actionable by the interpreters themselves.
+
+The interpreter layer is model-agnostic.
+
+---
+
+## Developer Recommendation
+
+ECR-VP is designed to be used iteratively.
+
+Preliminary runs should be executed on low-cost interpreters to detect structural variance and definitional instability.
+
+Omega runs should be reserved for final archival reports and fixed artifacts.
+
+Multi-model synthesis is recommended only when preparing sealed outputs intended for publication, patent filing, or long-term preservation.
+
+Excessive use of premium interpreters for exploratory scanning is discouraged.
+
+---
+
+## Internal Credit System
+
+The protocol operates through an internal credit abstraction layer.
+
+Users purchase credits which are converted into API calls via secured master keys.
+
+The user interface displays:
+
+- Current credit balance  
+- Selected interpreters  
+- Estimated cost before execution  
+
+This architecture removes API configuration burden from the user while preserving cost transparency.
+
+---
+
+## Intended Audience
+
+ECR-VP is intended for:
+
+- Researchers working with long-horizon theoretical corpora  
+- Architects of formal systems  
+- Authors developing internally coherent frameworks  
+- Teams preparing publication-grade structural verification  
+
+It is not intended as a general-purpose writing assistant.
 
 ---
 
 ## License
 
-Protocol specification: **CC BY-NC-ND 4.0**
-
-Inspired by [Navigational Cybernetics 2.5](https://github.com/petronushowcore-mx/ECR-VP) | [MxBv](https://www.linkedin.com/in/max-barzenkov-b03441131)
+License information is provided in the `LICENSE` file.
